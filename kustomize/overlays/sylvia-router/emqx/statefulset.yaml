@@ -1,0 +1,52 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: emqx
+spec:
+  selector:
+    matchLabels:
+      app: emqx
+  serviceName: emqx
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: emqx
+    spec:
+      containers:
+        - name: emqx
+          env:
+            - name: EMQX_LOADED_MODULES
+              value: emqx_mod_acl_internal,emqx_mod_presence,emqx_mod_topic_metrics
+            - name: EMQX_LOADED_PLUGINS
+              value: emqx_dashboard|emqx_management|emqx_auth_mnesia
+          image: emqx
+          ports:
+            - containerPort: 1883
+            - containerPort: 8883
+            - containerPort: 18083
+          resources:
+            limits:
+              cpu: "1000m"
+              memory: "512Mi"
+            requests:
+              cpu: "100m"
+              memory: "128Mi"
+          volumeMounts:
+            - name: certificates
+              mountPath: /conf/certs
+            - name: emqx
+              mountPath: /opt/emqx/data
+            - name: emqx-config
+              mountPath: /opt/emqx/etc/emqx.conf
+              subPath: emqx.conf
+      volumes:
+        - name: certificates
+          configMap:
+            name: certificates
+        - name: emqx
+          persistentVolumeClaim:
+            claimName: emqx-claim
+        - name: emqx-config
+          configMap:
+            name: emqx-config

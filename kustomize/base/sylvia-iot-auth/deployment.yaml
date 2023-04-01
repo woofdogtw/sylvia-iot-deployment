@@ -1,0 +1,36 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: sylvia-iot-auth
+spec:
+  selector:
+    matchLabels:
+      app: sylvia-iot-auth
+  template:
+    metadata:
+      labels:
+        app: sylvia-iot-auth
+    spec:
+      containers:
+        - name: sylvia-iot-auth
+          envFrom:
+            - configMapRef:
+                name: sylvia-iot-auth-configmap
+          image: sylvia-iot-auth
+          ports:
+            - containerPort: 1080
+            - containerPort: 1443
+          resources:
+            limits:
+              cpu: "500m"
+              memory: "128Mi"
+            requests:
+              cpu: "100m"
+              memory: "64Mi"
+          volumeMounts:
+            - name: certificates
+              mountPath: /conf/certs
+      volumes:
+        - name: certificates
+          configMap:
+            name: certificates

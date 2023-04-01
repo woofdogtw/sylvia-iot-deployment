@@ -1,0 +1,45 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: sylvia-iot-simple-ui
+spec:
+  selector:
+    matchLabels:
+      app: sylvia-iot-simple-ui
+  template:
+    metadata:
+      labels:
+        app: sylvia-iot-simple-ui
+    spec:
+      containers:
+        - name: sylvia-iot-simple-ui
+          image: sylvia-iot-simple-ui
+          ports:
+            - containerPort: 80
+            - containerPort: 443
+          resources:
+            limits:
+              cpu: "500m"
+              memory: "128Mi"
+            requests:
+              cpu: "200m"
+              memory: "128Mi"
+          volumeMounts:
+            - name: certificates
+              mountPath: /conf/certs
+            - name: nginx-config
+              mountPath: /etc/nginx/nginx.conf
+              subPath: nginx.conf
+            - name: sylvia-iot-simple-ui-config
+              mountPath: /usr/share/nginx/html/js/config.js
+              subPath: config.js
+      volumes:
+        - name: certificates
+          configMap:
+            name: certificates
+        - name: nginx-config
+          configMap:
+            name: nginx-config
+        - name: sylvia-iot-simple-ui-config
+          configMap:
+            name: sylvia-iot-simple-ui-config

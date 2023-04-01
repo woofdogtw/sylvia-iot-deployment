@@ -1,0 +1,72 @@
+configMapGenerator:
+  - name: certificates
+    files:
+      - certificates/ca-certificates.crt
+      - certificates/sylvia-iot.crt
+      - certificates/sylvia-iot.key
+  - name: emqx-config
+    files:
+      - emqx/emqx.conf
+  - name: rabbitmq-config
+    files:
+      - rabbitmq/rabbitmq.conf
+  - name: nginx-config
+    files:
+      - sylvia-iot-simple-ui/nginx.conf
+  - name: sylvia-iot-simple-ui-config
+    files:
+      - sylvia-iot-simple-ui/config.js
+
+images:
+  - name: emqx
+    newName: emqx/emqx
+    newTag: 5.0.21
+  - name: mongodb
+    newName: mongo
+    newTag: 6.0.5
+  - name: rabbitmq
+    newName: rabbitmq
+    newTag: 3.11.11-management-alpine
+  - name: redis
+    newName: redis
+    newTag: 7.0.10
+  - name: sylvia-iot-auth
+    newName: woofdogtw/sylvia-iot-auth
+    newTag: 0.0.6
+  - name: sylvia-iot-broker
+    newName: woofdogtw/sylvia-iot-broker
+    newTag: 0.0.6
+  - name: sylvia-iot-core
+    newName: woofdogtw/sylvia-iot-core
+    newTag: 0.0.6
+  - name: sylvia-iot-coremgr
+    newName: woofdogtw/sylvia-iot-coremgr
+    newTag: 0.0.6
+  - name: sylvia-iot-data
+    newName: woofdogtw/sylvia-iot-data
+    newTag: 0.0.6
+  - name: sylvia-iot-simple-ui
+    newName: woofdogtw/sylvia-iot-simple-ui
+    newTag: 0.0.2
+
+patches:
+  - path: priority-sylvia-base.yaml
+    target:
+      kind: StatefulSet
+      name: emqx|mongodb|rabbitmq|redis
+  - path: replicas-sylvia-iot.yaml
+    target:
+      kind: Deployment
+      name: sylvia-iot-.*
+
+resources:
+  - ./emqx
+  - ./mongodb
+  - ./rabbitmq
+  - ./redis
+  #- ../../base/sylvia-iot-auth
+  #- ../../base/sylvia-iot-broker
+  - ../../base/sylvia-iot-core
+  #- ../../base/sylvia-iot-coremgr
+  #- ../../base/sylvia-iot-data
+  - ../../base/sylvia-iot-simple-ui

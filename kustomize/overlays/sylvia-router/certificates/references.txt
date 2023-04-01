@@ -1,0 +1,4 @@
+https://blog.miniasp.com/post/2019/02/25/Creating-Self-signed-Certificate-using-OpenSSL
+
+https://www.796t.com/content/1552296019.html
+openssl rsa -in pkcs8.pem -out pkcs1.pem

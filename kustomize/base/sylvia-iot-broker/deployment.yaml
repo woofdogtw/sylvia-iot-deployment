@@ -1,0 +1,36 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: sylvia-iot-broker
+spec:
+  selector:
+    matchLabels:
+      app: sylvia-iot-broker
+  template:
+    metadata:
+      labels:
+        app: sylvia-iot-broker
+    spec:
+      containers:
+        - name: sylvia-iot-broker
+          envFrom:
+            - configMapRef:
+                name: sylvia-iot-broker-configmap
+          image: sylvia-iot-broker
+          ports:
+            - containerPort: 1080
+            - containerPort: 1443
+          resources:
+            limits:
+              cpu: "2000m"
+              memory: "128Mi"
+            requests:
+              cpu: "100m"
+              memory: "64Mi"
+          volumeMounts:
+            - name: certificates
+              mountPath: /conf/certs
+      volumes:
+        - name: certificates
+          configMap:
+            name: certificates
