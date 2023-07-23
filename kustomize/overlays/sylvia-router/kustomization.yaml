@@ -20,34 +20,34 @@ configMapGenerator:
 images:
   - name: emqx
     newName: emqx/emqx
-    newTag: 5.0.26
+    newTag: 5.1.2
   - name: mongodb
     newName: mongo
-    newTag: 6.0.6
+    newTag: 6.0.8
   - name: rabbitmq
     newName: rabbitmq
-    newTag: 3.11.17-management-alpine
+    newTag: 3.12.2-management-alpine
   - name: redis
     newName: redis
-    newTag: 7.0.11
+    newTag: 7.0.12
   - name: sylvia-iot-auth
     newName: woofdogtw/sylvia-iot-auth
-    newTag: 0.0.14
+    newTag: 0.0.19
   - name: sylvia-iot-broker
     newName: woofdogtw/sylvia-iot-broker
-    newTag: 0.0.14
+    newTag: 0.0.19
   - name: sylvia-iot-core
     newName: woofdogtw/sylvia-iot-core
-    newTag: 0.0.14
+    newTag: 0.0.19
   - name: sylvia-iot-coremgr
     newName: woofdogtw/sylvia-iot-coremgr
-    newTag: 0.0.14
+    newTag: 0.0.19
   - name: sylvia-iot-data
     newName: woofdogtw/sylvia-iot-data
-    newTag: 0.0.14
+    newTag: 0.0.19
   - name: sylvia-iot-simple-ui
     newName: woofdogtw/sylvia-iot-simple-ui
-    newTag: 0.0.2
+    newTag: 0.0.3
 
 patches:
   - path: priority-sylvia-base.yaml

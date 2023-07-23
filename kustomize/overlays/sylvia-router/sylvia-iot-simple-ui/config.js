@@ -3,6 +3,7 @@ window.config = {
     base: '/auth',
     clientId: 'sylvia-iot-simple-ui',
     redirectUri: 'http://localhost/#/sylvia-core/redirect',
+    scopes: [],
   },
   coremgr: {
     base: '/coremgr',
