@@ -32,19 +32,19 @@ images:
     newTag: 7.2.4
   - name: sylvia-iot-auth
     newName: woofdogtw/sylvia-iot-auth
-    newTag: 0.1.1
+    newTag: 0.1.2
   - name: sylvia-iot-broker
     newName: woofdogtw/sylvia-iot-broker
-    newTag: 0.1.1
+    newTag: 0.1.2
   - name: sylvia-iot-core
     newName: woofdogtw/sylvia-iot-core
-    newTag: 0.1.1
+    newTag: 0.1.2
   - name: sylvia-iot-coremgr
     newName: woofdogtw/sylvia-iot-coremgr
-    newTag: 0.1.1
+    newTag: 0.1.2
   - name: sylvia-iot-data
     newName: woofdogtw/sylvia-iot-data
-    newTag: 0.1.1
+    newTag: 0.1.2
   - name: sylvia-iot-simple-ui
     newName: woofdogtw/sylvia-iot-simple-ui
     newTag: 0.1.0

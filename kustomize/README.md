@@ -1,5 +1,5 @@
-Sylvia-IoT Deployment with Kusomization
-=======================================
+Sylvia-IoT Deployment with Kustomize
+====================================
 
 Here we provide following environments:
 
