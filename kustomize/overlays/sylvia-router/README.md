@@ -27,7 +27,7 @@ In this document we use a directory as the storage for MongoDB and RabbitMQ (EMQ
 ```shell
 minikube start \
     --driver=docker \
-    --kubernetes-version="v1.33.4" \
+    --kubernetes-version="v1.34.1" \
     --mount \
     --mount-string="$HOME/minikube:/db" \
     --network=host
