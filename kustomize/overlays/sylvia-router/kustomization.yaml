@@ -20,31 +20,31 @@ configMapGenerator:
 images:
   - name: emqx
     newName: emqx/emqx
-    newTag: 5.9.0
+    newTag: 5.10.1
   - name: mongodb
     newName: mongo
-    newTag: 8.0.13
+    newTag: 8.0.14
   - name: rabbitmq
     newName: rabbitmq
     newTag: 4.1.4-management-alpine
   - name: redis
     newName: redis
-    newTag: 8.0.0
+    newTag: 8.2.1
   - name: sylvia-iot-auth
     newName: woofdogtw/sylvia-iot-auth
-    newTag: 0.3.10
+    newTag: 0.3.11
   - name: sylvia-iot-broker
     newName: woofdogtw/sylvia-iot-broker
-    newTag: 0.3.10
+    newTag: 0.3.11
   - name: sylvia-iot-core
     newName: woofdogtw/sylvia-iot-core
-    newTag: 0.3.10
+    newTag: 0.3.11
   - name: sylvia-iot-coremgr
     newName: woofdogtw/sylvia-iot-coremgr
-    newTag: 0.3.10
+    newTag: 0.3.11
   - name: sylvia-iot-data
     newName: woofdogtw/sylvia-iot-data
-    newTag: 0.3.10
+    newTag: 0.3.11
   - name: sylvia-iot-simple-ui
     newName: woofdogtw/sylvia-iot-simple-ui
     newTag: 0.1.8
