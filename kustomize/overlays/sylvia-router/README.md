@@ -27,7 +27,7 @@ In this document we use a directory as the storage for MongoDB and RabbitMQ (EMQ
 ```shell
 minikube start \
     --driver=docker \
-    --kubernetes-version="v1.35.0" \
+    --kubernetes-version="v1.35.1" \
     --mount \
     --mount-string="$HOME/minikube:/db" \
     --network=host
@@ -56,10 +56,11 @@ resources:
     - ../../base/sylvia-iot-core
     #- ../../base/sylvia-iot-coremgr
     #- ../../base/sylvia-iot-data
+    - ../../base/sylvia-iot-gui
     - ../../base/sylvia-iot-simple-ui
 ```
 
-And then modify `sylvia-iot-simple-ui/nginx.conf`:
+And then modify `sylvia-iot-gui-ui/nginx.conf`:
 
 ```
 #location /auth {
@@ -130,6 +131,17 @@ db.user.insertOne({
     info: {}
 })
 db.client.insertOne({
+    clientId: 'sylvia-iot-gui',
+    createdAt: new Date(),
+    modifiedAt: new Date(),
+    clientSecret: null,
+    redirectUris: ['http://localhost/#/auth/callback'],
+    scopes: [],
+    userId: 'admin',
+    name: 'Sylvia-IoT GUI',
+    imageUrl: null
+})
+db.client.insertOne({
     clientId: 'sylvia-iot-simple-ui',
     createdAt: new Date(),
     modifiedAt: new Date(),
@@ -142,13 +154,20 @@ db.client.insertOne({
 })
 ```
 
-Back to the host, enter kubectl to forward port 80:
+Back to the host, enter kubectl to forward port 80 for the desired UI:
 
+- **sylvia-iot-gui** (new GUI):
+```shell
+sudo cp -r ~/.kube /root/
+sudo kubectl port-forward deploy/sylvia-iot-gui --address=0.0.0.0 80:80 > /dev/null
+```
+
+- **sylvia-iot-simple-ui** (simple UI):
 ```shell
 sudo cp -r ~/.kube /root/
 sudo kubectl port-forward deploy/sylvia-iot-simple-ui --address=0.0.0.0 80:80 > /dev/null
 ```
 
-Use the browser to open `http://localhost`, then use **admin** and **admin** as user name and password to log-in the Sylvia-IoT simple UI.
+Use the browser to open `http://localhost`, then use **admin** and **admin** as user name and password to log-in.
 
 You may receive 404 warning messages because currently we don't support **sylvia-router** for Kubernetes.

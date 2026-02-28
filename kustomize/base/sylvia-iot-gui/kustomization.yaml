@@ -1,0 +1,8 @@
+configMapGenerator:
+  - name: sylvia-iot-gui-configmap
+    envs:
+      - application.properties
+
+resources:
+  - deployment.yaml
+  - service.yaml
