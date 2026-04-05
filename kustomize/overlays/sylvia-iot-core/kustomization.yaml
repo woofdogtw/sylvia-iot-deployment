@@ -1,0 +1,85 @@
+configMapGenerator:
+  - name: certificates
+    files:
+      - certificates/ca-certificates.crt
+      - certificates/sylvia-iot.crt
+      - certificates/sylvia-iot.key
+  - name: emqx-config
+    files:
+      - emqx.conf
+  - name: rabbitmq-config
+    files:
+      - rabbitmq.conf
+  - name: nginx-config
+    files:
+      - sylvia-iot-gui/nginx.conf
+  - name: sylvia-iot-gui-settings
+    envs:
+      - settings.env
+
+images:
+  - name: emqx
+    newName: emqx/emqx
+    newTag: 6.2.0
+  - name: mongodb
+    newName: mongo
+    newTag: 8.2.6
+  - name: rabbitmq
+    newName: rabbitmq
+    newTag: 4.2.5-management-alpine
+  - name: redis
+    newName: redis
+    newTag: 8.6.1-alpine
+  - name: sylvia-iot-auth
+    newName: woofdogtw/sylvia-iot-auth
+    newTag: 0.4.5
+  - name: sylvia-iot-broker
+    newName: woofdogtw/sylvia-iot-broker
+    newTag: 0.4.5
+  - name: sylvia-iot-core
+    newName: woofdogtw/sylvia-iot-core
+    newTag: 0.4.5
+  - name: sylvia-iot-coremgr
+    newName: woofdogtw/sylvia-iot-coremgr
+    newTag: 0.4.5
+  - name: sylvia-iot-data
+    newName: woofdogtw/sylvia-iot-data
+    newTag: 0.4.5
+  - name: sylvia-iot-gui
+    newName: woofdogtw/sylvia-iot-gui
+    newTag: 0.1.2
+
+patches:
+  - path: replicas-sylvia-iot.yaml
+    target:
+      kind: Deployment
+      name: sylvia-iot-.*
+  - path: gui-settings-patch.yaml
+    target:
+      kind: Deployment
+      name: sylvia-iot-gui
+  - path: mongodb-seed-settings-patch.yaml
+    target:
+      kind: Job
+      name: mongodb-seed
+
+resources:
+  - ../../base/emqx
+  - ../../base/mongodb
+  - ../../base/mongodb-seed
+  - ../../base/rabbitmq
+  - ../../base/redis
+  - ../../base/sylvia-iot-auth
+  - ../../base/sylvia-iot-broker
+  #- ../../base/sylvia-iot-core
+  - ../../base/sylvia-iot-coremgr
+  - ../../base/sylvia-iot-data
+  - ../../base/sylvia-iot-gui
+  - ../../base/platform-init
+  # TODO: uncomment when Docker images are available
+  #- ../../base/lora-ifroglab
+  #- ../../base/app-demo
+  - storage/mongodb-volume.yaml
+  - storage/rabbitmq-volume.yaml
+  - storage/emqx-volume.yaml
+  #- ingress.yaml

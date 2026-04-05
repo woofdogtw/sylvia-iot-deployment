@@ -1,0 +1,11 @@
+{
+    "log": {},
+    "server": {
+        "httpPort": 7080
+    },
+    "appDemo": {
+        "unit": "demo",
+        "code": "test-app",
+        "mqUri": "amqp://application.demo.test-app:password@localhost/application.demo.test-app"
+    }
+}

@@ -11,9 +11,58 @@ spec:
       labels:
         app: sylvia-iot-gui
     spec:
+      initContainers:
+        - name: plugin-downloader
+          image: alpine
+          command:
+            - /bin/sh
+            - -c
+            - |
+              PLUGINS="${INSTALL_PLUGINS:-}"
+              if [ -z "$PLUGINS" ]; then echo "No plugins"; exit 0; fi
+              apk add --no-cache -q curl tar xz
+              if echo "$PLUGINS" | grep -q "lora-ifroglab"; then
+                [ ! -f /plugins/plugin-lora-ifroglab.js ] && \
+                  curl -sL -o /tmp/p.tar.xz https://github.com/woofdogtw/sylvia-iot-mfe-examples/releases/latest/download/plugin-lora-ifroglab.tar.xz && \
+                  tar xf /tmp/p.tar.xz -C /plugins && rm /tmp/p.tar.xz
+              fi
+              if echo "$PLUGINS" | grep -q "app-demo"; then
+                [ ! -f /plugins/plugin-app-demo.js ] && \
+                  curl -sL -o /tmp/p.tar.xz https://github.com/woofdogtw/sylvia-iot-mfe-examples/releases/latest/download/plugin-app-demo.tar.xz && \
+                  tar xf /tmp/p.tar.xz -C /plugins && rm /tmp/p.tar.xz
+              fi
+              echo "Plugins done"
+          volumeMounts:
+            - name: plugins
+              mountPath: /plugins
+          resources:
+            limits:
+              cpu: "200m"
+              memory: "128Mi"
       containers:
         - name: sylvia-iot-gui
           image: sylvia-iot-gui
+          command:
+            - /bin/sh
+            - -c
+            - |
+              HOST="${GUI_HOST:-localhost}"
+              PORT="${GUI_PORT:-80}"
+              if [ "$PORT" = "80" ]; then BASE="http://$HOST"; else BASE="http://$HOST:$PORT"; fi
+              PLUGINS="${INSTALL_PLUGINS:-}"
+              PC=""; PA=""
+              if echo "$PLUGINS" | grep -q "lora-ifroglab"; then
+                PC="$PC  loraIfroglab: { baseUrl: '/lora-ifroglab' },\n"
+                PA="$PA'/js/plugins/plugin-lora-ifroglab.js', "
+              fi
+              if echo "$PLUGINS" | grep -q "app-demo"; then
+                PC="$PC  appDemo: { baseUrl: '/app-demo' },\n"
+                PA="$PA'/js/plugins/plugin-app-demo.js', "
+              fi
+              printf "window.config = {\n  auth: {\n    baseUrl: '/auth',\n    clientId: 'sylvia-iot-gui',\n    redirectUri: '$BASE/#/auth/callback',\n    scopes: [],\n  },\n  coremgr: { baseUrl: '/coremgr' },\n  data: { baseUrl: '/data' },\n${PC}  plugins: [${PA}],\n}\n" \
+                > /usr/share/nginx/html/js/config.js
+              echo "config.js generated (host: $BASE)"
+              exec nginx -g 'daemon off;'
           ports:
             - containerPort: 80
             - containerPort: 443
@@ -30,9 +79,8 @@ spec:
             - name: nginx-config
               mountPath: /etc/nginx/nginx.conf
               subPath: nginx.conf
-            - name: sylvia-iot-gui-config
-              mountPath: /usr/share/nginx/html/js/config.js
-              subPath: config.js
+            - name: plugins
+              mountPath: /usr/share/nginx/html/js/plugins
       volumes:
         - name: certificates
           configMap:
@@ -40,6 +88,5 @@ spec:
         - name: nginx-config
           configMap:
             name: nginx-config
-        - name: sylvia-iot-gui-config
-          configMap:
-            name: sylvia-iot-gui-config
+        - name: plugins
+          emptyDir: {}

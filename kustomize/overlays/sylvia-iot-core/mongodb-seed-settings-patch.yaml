@@ -1,0 +1,12 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: mongodb-seed
+spec:
+  template:
+    spec:
+      containers:
+        - name: seed
+          envFrom:
+            - configMapRef:
+                name: sylvia-iot-gui-settings

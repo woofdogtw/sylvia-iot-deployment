@@ -1,0 +1,552 @@
+configs:
+  emqx-conf:
+    content: |
+      node {
+        name = "emqx@127.0.0.1"
+        cookie = "emqxsecretcookie"
+        data_dir = "data"
+        etc_dir = "etc"
+      }
+      log {
+        file_handlers.default {
+          level = warning
+          file = "log/emqx.log"
+        }
+      }
+      cluster {
+        name = emqxcl
+        discovery_strategy = manual
+      }
+      listeners.tcp.default {
+        bind = "0.0.0.0:1883"
+        max_connections = 1024000
+      }
+      listeners.ssl.default {
+        bind = "0.0.0.0:8883"
+        max_connections = 512000
+      }
+      dashboard {
+        listeners.http {
+          bind = 18083
+        }
+        default_username = "admin"
+        default_password = "public"
+      }
+      authentication = [
+        {
+          mechanism = password_based
+          backend = built_in_database
+        }
+      ]
+      authorization {
+        no_match = deny
+        sources = [
+          {
+            type = file
+            path = "etc/acl.conf"
+          },
+          {
+            type = built_in_database
+          }
+        ]
+      }
+
+  rabbitmq-conf:
+    content: |
+      listeners.ssl.default  = 5671
+      ssl_options.certfile   = /conf/certs/sylvia-iot.crt
+      ssl_options.keyfile    = /conf/certs/sylvia-iot.key
+      ssl_options.verify     = verify_none
+
+  nginx-conf:
+    content: |
+      pid                 /run/nginx.pid;
+      user                nginx;
+      worker_processes    auto;
+      events {
+          worker_connections  1024;
+      }
+      http {
+          access_log          /var/log/nginx/access.log;
+          default_type        application/octet-stream;
+          keepalive_timeout   65;
+          include             /etc/nginx/mime.types;
+          sendfile            on;
+          server {
+              listen  80;
+              location /auth {
+                  proxy_pass  http://sylvia-iot-core:1080;
+              }
+              location /broker {
+                  proxy_pass  http://sylvia-iot-core:1080;
+              }
+              location /coremgr {
+                  proxy_pass  http://sylvia-iot-core:1080;
+              }
+              location /data {
+                  proxy_pass  http://sylvia-iot-core:1080;
+              }
+              location / {
+                  root    /usr/share/nginx/html;
+                  index   index.html;
+              }
+          }
+      }
+
+  init-mongodb-js:
+    content: |
+      const guiHost = process.env.GUI_HOST || 'localhost';
+      const guiPort = process.env.GUI_PORT || '80';
+      const baseUrl = guiPort === '80' ? `http://$${guiHost}` : `http://$${guiHost}:$${guiPort}`;
+      use('sylvia-iot-auth');
+      db.user.updateOne(
+          { userId: 'admin' },
+          {
+              $$setOnInsert: {
+                  userId: 'admin',
+                  account: 'admin',
+                  createdAt: new Date(0),
+                  modifiedAt: new Date(0),
+                  verifiedAt: new Date(0),
+                  expiredAt: null,
+                  disabledAt: null,
+                  roles: { admin: true, dev: false },
+                  password: '27258772d876ffcef7ca2c75d6f4e6bcd81c203bd3e93c0791c736e5a2df4afa',
+                  salt: 'YsBsou2O',
+                  name: 'Admin',
+                  info: {}
+              }
+          },
+          { upsert: true }
+      );
+      print('user: admin');
+      db.client.updateOne(
+          { clientId: 'public' },
+          {
+              $$setOnInsert: {
+                  clientId: 'public',
+                  createdAt: new Date(0),
+                  modifiedAt: new Date(0),
+                  clientSecret: null,
+                  scopes: [],
+                  userId: 'admin',
+                  name: 'Public',
+                  imageUrl: null
+              },
+              $$set: {
+                  redirectUris: [
+                      `$${baseUrl}/auth/oauth2/redirect`,
+                      `$${baseUrl}/#/auth/callback`,
+                      'http://localhost:1080/auth/oauth2/redirect'
+                  ]
+              }
+          },
+          { upsert: true }
+      );
+      print('client: public');
+      db.client.updateOne(
+          { clientId: 'private' },
+          {
+              $$setOnInsert: {
+                  clientId: 'private',
+                  createdAt: new Date(0),
+                  modifiedAt: new Date(0),
+                  clientSecret: 'secret',
+                  scopes: [],
+                  userId: 'admin',
+                  name: 'Private',
+                  imageUrl: null
+              },
+              $$set: {
+                  redirectUris: [`$${baseUrl}/auth/oauth2/redirect`]
+              }
+          },
+          { upsert: true }
+      );
+      print('client: private');
+      db.client.updateOne(
+          { clientId: 'sylvia-iot-gui' },
+          {
+              $$setOnInsert: {
+                  clientId: 'sylvia-iot-gui',
+                  createdAt: new Date(0),
+                  modifiedAt: new Date(0),
+                  clientSecret: null,
+                  scopes: [],
+                  userId: 'admin',
+                  name: 'Sylvia-IoT GUI',
+                  imageUrl: null
+              },
+              $$set: {
+                  redirectUris: [`$${baseUrl}/#/auth/callback`]
+              }
+          },
+          { upsert: true }
+      );
+      print('client: sylvia-iot-gui');
+      print('MongoDB seed data initialized (host: ' + baseUrl + ').');
+
+services:
+  cert-init:
+    image: alpine:latest
+    container_name: sylvia-cert-init
+    restart: "no"
+    entrypoint: /bin/sh
+    command:
+      - -c
+      - |
+        if [ -f /certs/sylvia-iot.crt ]; then echo "Certs exist"; exit 0; fi
+        apk add --no-cache -q openssl
+        openssl req -x509 -newkey rsa:2048 \
+          -keyout /certs/sylvia-iot.key -out /certs/sylvia-iot.crt \
+          -days 3650 -nodes -subj "/CN=sylvia-iot"
+        cp /certs/sylvia-iot.crt /certs/ca-certificates.crt
+        chmod 644 /certs/sylvia-iot.key
+        echo "Certs generated"
+    volumes:
+      - certs-data:/certs
+
+  mongodb:
+    image: mongo:${MONGODB_VERSION}
+    container_name: sylvia-mongodb
+    restart: unless-stopped
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodb-data:/data/db
+    healthcheck:
+      test: mongosh --quiet --eval "db.adminCommand('ping')"
+      interval: 5s
+      timeout: 5s
+      retries: 12
+
+  redis:
+    image: redis:${REDIS_VERSION}-alpine
+    container_name: sylvia-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+
+  rabbitmq:
+    image: rabbitmq:${RABBITMQ_VERSION}-management-alpine
+    container_name: sylvia-rabbitmq
+    restart: unless-stopped
+    depends_on:
+      cert-init:
+        condition: service_completed_successfully
+    ports:
+      - "5671:5671"
+      - "5672:5672"
+      - "15672:15672"
+    configs:
+      - source: rabbitmq-conf
+        target: /etc/rabbitmq/rabbitmq.conf
+    volumes:
+      - rabbitmq-data:/var/lib/rabbitmq
+      - certs-data:/conf/certs:ro
+
+  emqx:
+    image: emqx/emqx:${EMQX_VERSION}
+    container_name: sylvia-emqx
+    restart: unless-stopped
+    depends_on:
+      cert-init:
+        condition: service_completed_successfully
+    ports:
+      - "1883:1883"
+      - "8883:8883"
+      - "18083:18083"
+    configs:
+      - source: emqx-conf
+        target: /opt/emqx/etc/emqx.conf
+    volumes:
+      - emqx-data:/opt/emqx/data
+      - certs-data:/conf/certs:ro
+
+  mongodb-seed:
+    image: mongo:${MONGODB_VERSION}
+    container_name: sylvia-mongodb-seed
+    depends_on:
+      mongodb:
+        condition: service_healthy
+    restart: "no"
+    environment:
+      - GUI_HOST=${GUI_HOST:-localhost}
+      - GUI_PORT=${GUI_PORT:-80}
+    entrypoint:
+      - mongosh
+      - --host
+      - mongodb
+      - /scripts/init-mongodb.js
+    configs:
+      - source: init-mongodb-js
+        target: /scripts/init-mongodb.js
+
+  sylvia-iot-core:
+    image: woofdogtw/sylvia-iot-core:${SYLVIA_IOT_CORE_VERSION}
+    container_name: sylvia-iot-core
+    restart: unless-stopped
+    depends_on:
+      cert-init:
+        condition: service_completed_successfully
+      mongodb-seed:
+        condition: service_completed_successfully
+      rabbitmq:
+        condition: service_started
+      emqx:
+        condition: service_started
+    ports:
+      - "1080:1080"
+      - "1443:1443"
+    environment:
+      - SERVER_HTTP_PORT=1080
+      - SERVER_HTTPS_PORT=1443
+      - SERVER_CACERT_FILE=/conf/certs/ca-certificates.crt
+      - SERVER_CERT_FILE=/conf/certs/sylvia-iot.crt
+      - SERVER_KEY_FILE=/conf/certs/sylvia-iot.key
+      - SERVER_STATIC_PATH=static
+      - AUTH_DB_ENGINE=mongodb
+      - AUTH_DB_MONGODB_URL=mongodb://mongodb:27017
+      - AUTH_DB_MONGODB_DATABASE=sylvia-iot-auth
+      - BROKER_AUTH=http://localhost:1080/auth
+      - BROKER_DB_ENGINE=mongodb
+      - BROKER_DB_MONGODB_URL=mongodb://mongodb:27017
+      - BROKER_DB_MONGODB_DATABASE=sylvia-iot-broker
+      - BROKER_CACHE_ENGINE=memory
+      - BROKER_MEMORY_DEVICE=10000
+      - BROKER_MEMORY_DEVICE_ROUTE=10000
+      - BROKER_MEMORY_NETWORK_ROUTE=10000
+      - BROKER_MQ_PREFETCH=100
+      - BROKER_MQ_PERSISTENT=false
+      - BROKER_MQ_SHAREDPREFIX=$$share/sylvia-iot-broker/
+      - BROKER_MQCHANNELS_UNIT_URL=amqp://rabbitmq
+      - BROKER_MQCHANNELS_UNIT_PREFETCH=100
+      - BROKER_MQCHANNELS_APPLICATION_URL=amqp://rabbitmq
+      - BROKER_MQCHANNELS_APPLICATION_PREFETCH=100
+      - BROKER_MQCHANNELS_NETWORK_URL=amqp://rabbitmq
+      - BROKER_MQCHANNELS_NETWORK_PREFETCH=100
+      - BROKER_MQCHANNELS_DEVICE_URL=amqp://rabbitmq
+      - BROKER_MQCHANNELS_DEVICE_PREFETCH=100
+      - BROKER_MQCHANNELS_DEVICE_ROUTE_URL=amqp://rabbitmq
+      - BROKER_MQCHANNELS_DEVICE_ROUTE_PREFETCH=100
+      - BROKER_MQCHANNELS_NETWORK_ROUTE_URL=amqp://rabbitmq
+      - BROKER_MQCHANNELS_NETWORK_ROUTE_PREFETCH=100
+      - BROKER_MQCHANNELS_DATA_URL=amqp://rabbitmq
+      - BROKER_MQCHANNELS_DATA_PERSISTENT=false
+      - COREMGR_AUTH=http://localhost:1080/auth
+      - COREMGR_BROKER=http://localhost:1080/broker
+      - COREMGR_MQ_ENGINE_AMQP=rabbitmq
+      - COREMGR_MQ_ENGINE_MQTT=emqx
+      - COREMGR_MQ_RABBITMQ_USERNAME=guest
+      - COREMGR_MQ_RABBITMQ_PASSWORD=guest
+      - COREMGR_MQ_RABBITMQ_TTL=3600
+      - COREMGR_MQ_RABBITMQ_LENGTH=10000
+      - COREMGR_MQ_EMQX_APIKEY=admin
+      - COREMGR_MQ_EMQX_APISECRET=public
+      - COREMGR_MQ_RUMQTTD_MQTT_PORT=1883
+      - COREMGR_MQ_RUMQTTD_MQTTS_PORT=8883
+      - COREMGR_MQ_RUMQTTD_CONSOLE_PORT=18083
+      - COREMGR_MQCHANNELS_DATA_URL=amqp://rabbitmq
+      - COREMGR_MQCHANNELS_DATA_PERSISTENT=false
+      - COREMGRCLI_AUTH=http://localhost:1080/auth
+      - COREMGRCLI_COREMGR=http://localhost:1080/coremgr
+      - COREMGRCLI_DATA=http://localhost:1080/data
+      - COREMGRCLI_CLIENT_ID=public
+      - COREMGRCLI_REDIRECT_URI=http://localhost:1080/auth/oauth2/redirect
+      - DATA_AUTH=http://localhost:1080/auth
+      - DATA_BROKER=http://localhost:1080/broker
+      - DATA_DB_ENGINE=mongodb
+      - DATA_DB_MONGODB_URL=mongodb://mongodb:27017
+      - DATA_DB_MONGODB_DATABASE=sylvia-iot-data
+      - DATA_MQCHANNELS_BROKER_URL=amqp://rabbitmq
+      - DATA_MQCHANNELS_BROKER_PREFETCH=100
+      - DATA_MQCHANNELS_BROKER_SHAREDPREFIX=$$share/sylvia-iot-data/
+      - DATA_MQCHANNELS_COREMGR_URL=amqp://rabbitmq
+      - DATA_MQCHANNELS_COREMGR_PREFETCH=100
+      - DATA_MQCHANNELS_COREMGR_SHAREDPREFIX=$$share/sylvia-iot-data/
+    volumes:
+      - certs-data:/conf/certs:ro
+
+  sylvia-iot-gui:
+    image: woofdogtw/sylvia-iot-gui:${SYLVIA_IOT_GUI_VERSION}
+    container_name: sylvia-iot-gui
+    restart: unless-stopped
+    depends_on:
+      plugin-downloader:
+        condition: service_completed_successfully
+      sylvia-iot-core:
+        condition: service_started
+    ports:
+      - "${GUI_PORT:-80}:80"
+    environment:
+      - GUI_HOST=${GUI_HOST:-localhost}
+      - GUI_PORT=${GUI_PORT:-80}
+      - INSTALL_PLUGINS=${INSTALL_PLUGINS:-}
+    entrypoint: /bin/sh
+    command:
+      - -c
+      - |
+        HOST="$${GUI_HOST:-localhost}"
+        PORT="$${GUI_PORT:-80}"
+        if [ "$$PORT" = "80" ]; then BASE="http://$$HOST"; else BASE="http://$$HOST:$$PORT"; fi
+        PLUGINS="$${INSTALL_PLUGINS:-}"
+        PC=""; PA=""
+        if echo "$$PLUGINS" | grep -q "lora-ifroglab"; then
+          PC="$$PC  loraIfroglab: { baseUrl: '/lora-ifroglab' },\n"
+          PA="$$PA'/js/plugins/plugin-lora-ifroglab.js', "
+        fi
+        if echo "$$PLUGINS" | grep -q "app-demo"; then
+          PC="$$PC  appDemo: { baseUrl: '/app-demo' },\n"
+          PA="$$PA'/js/plugins/plugin-app-demo.js', "
+        fi
+        printf "window.config = {\n  auth: {\n    baseUrl: '/auth',\n    clientId: 'sylvia-iot-gui',\n    redirectUri: '$$BASE/#/auth/callback',\n    scopes: [],\n  },\n  coremgr: { baseUrl: '/coremgr' },\n  data: { baseUrl: '/data' },\n$${PC}  plugins: [$${PA}],\n}\n" \
+          > /usr/share/nginx/html/js/config.js
+        echo "config.js generated (host: $$BASE)"
+        exec nginx -g 'daemon off;'
+    configs:
+      - source: nginx-conf
+        target: /etc/nginx/nginx.conf
+    volumes:
+      - plugins-data:/usr/share/nginx/html/js/plugins:ro
+
+  plugin-downloader:
+    image: alpine:latest
+    container_name: sylvia-plugin-downloader
+    restart: "no"
+    entrypoint: /bin/sh
+    command:
+      - -c
+      - |
+        PLUGINS="$${INSTALL_PLUGINS}"
+        if [ -z "$$PLUGINS" ]; then echo "No plugins to install"; exit 0; fi
+        apk add --no-cache -q curl tar xz
+        mkdir -p /plugins
+        if echo "$$PLUGINS" | grep -q "lora-ifroglab"; then
+          if [ ! -f /plugins/plugin-lora-ifroglab.js ]; then
+            echo "Downloading plugin-lora-ifroglab..."
+            curl -sL -o /tmp/p.tar.xz https://github.com/woofdogtw/sylvia-iot-mfe-examples/releases/latest/download/plugin-lora-ifroglab.tar.xz
+            tar xf /tmp/p.tar.xz -C /plugins && rm -f /tmp/p.tar.xz
+          fi
+        fi
+        if echo "$$PLUGINS" | grep -q "app-demo"; then
+          if [ ! -f /plugins/plugin-app-demo.js ]; then
+            echo "Downloading plugin-app-demo..."
+            curl -sL -o /tmp/p.tar.xz https://github.com/woofdogtw/sylvia-iot-mfe-examples/releases/latest/download/plugin-app-demo.tar.xz
+            tar xf /tmp/p.tar.xz -C /plugins && rm -f /tmp/p.tar.xz
+          fi
+        fi
+        echo "Plugins done"
+    environment:
+      - INSTALL_PLUGINS=${INSTALL_PLUGINS:-}
+    volumes:
+      - plugins-data:/plugins
+
+  platform-init:
+    image: alpine:latest
+    container_name: sylvia-platform-init
+    restart: "no"
+    depends_on:
+      mongodb-seed:
+        condition: service_completed_successfully
+      sylvia-iot-core:
+        condition: service_started
+    entrypoint: /bin/sh
+    command:
+      - -c
+      - |
+        apk add --no-cache -q curl
+        BASE=http://sylvia-iot-core:1080
+        echo "Waiting for API..."
+        for i in $$(seq 1 90); do
+          STATUS=$$(curl -s -o /dev/null -w "%{http_code}" \
+            -X POST "$$BASE/auth/oauth2/login" \
+            -d "state=test&account=admin&password=admin" 2>/dev/null)
+          [ "$$STATUS" = "302" ] && break
+          sleep 2
+        done
+        REDIR="http%3A%2F%2Flocalhost%3A1080%2Fauth%2Foauth2%2Fredirect"
+        STATE="response_type%3Dcode%26client_id%3Dpublic%26redirect_uri%3D$${REDIR}"
+        SID=$$(curl -s -D - -o /dev/null -X POST "$$BASE/auth/oauth2/login" \
+          -d "state=$${STATE}&account=admin&password=admin" \
+          | grep -i 'session_id=' | sed 's/.*session_id=//;s/[&;].*//' | tr -d '\r')
+        CODE=$$(curl -s -D - -o /dev/null -X POST "$$BASE/auth/oauth2/authorize" \
+          -d "allow=yes&session_id=$${SID}&client_id=public&response_type=code&redirect_uri=$${REDIR}" \
+          | grep -i 'code=' | sed 's/.*code=//;s/[&[:space:]].*//' | tr -d '\r')
+        TOKEN=$$(curl -s -X POST "$$BASE/auth/oauth2/token" \
+          -d "grant_type=authorization_code&code=$${CODE}&redirect_uri=$${REDIR}&client_id=public")
+        AT=$$(echo "$$TOKEN" | sed 's/.*"access_token":"//;s/".*//')
+        if [ -z "$$AT" ] || [ "$$AT" = "$$TOKEN" ]; then
+          echo "Warning: auth failed"; exit 0
+        fi
+        echo "Authenticated"
+        AH="Authorization: Bearer $$AT"
+        # Create unit
+        URESP=$$(curl -s -w "\n%{http_code}" -X POST "$$BASE/coremgr/api/v1/unit" \
+          -H "Content-Type: application/json" -H "$$AH" \
+          -d '{"data":{"code":"demo","name":"Demo Unit"}}')
+        HC=$$(echo "$$URESP" | tail -1); BODY=$$(echo "$$URESP" | head -1)
+        if [ "$$HC" = "200" ] || [ "$$HC" = "201" ]; then
+          UID=$$(echo "$$BODY" | sed 's/.*"unitId":"//;s/".*//')
+          echo "Unit created: demo"
+        else
+          UID=$$(curl -s "$$BASE/coremgr/api/v1/unit/list?code=demo" -H "$$AH" \
+            | sed 's/.*"unitId":"//;s/".*//')
+          echo "Unit exists: demo"
+        fi
+        [ -z "$$UID" ] && { echo "No unit ID"; exit 0; }
+        # Create network
+        NRESP=$$(curl -s -w "\n%{http_code}" -X POST "$$BASE/coremgr/api/v1/network" \
+          -H "Content-Type: application/json" -H "$$AH" \
+          -d "{\"data\":{\"code\":\"lora-ifroglab\",\"unitId\":\"$$UID\",\"hostUri\":\"amqp://rabbitmq\",\"name\":\"LoRa iFrogLab\"}}")
+        HC=$$(echo "$$NRESP" | tail -1); BODY=$$(echo "$$NRESP" | head -1)
+        if [ "$$HC" = "200" ] || [ "$$HC" = "201" ]; then
+          NID=$$(echo "$$BODY" | sed 's/.*"networkId":"//;s/".*//')
+          curl -s -X PATCH "$$BASE/coremgr/api/v1/network/$$NID" \
+            -H "Content-Type: application/json" -H "$$AH" \
+            -d '{"data":{"password":"password"}}' > /dev/null
+          echo "Network created: lora-ifroglab"
+        else echo "Network exists: lora-ifroglab"; fi
+        # Create application
+        ARESP=$$(curl -s -w "\n%{http_code}" -X POST "$$BASE/coremgr/api/v1/application" \
+          -H "Content-Type: application/json" -H "$$AH" \
+          -d "{\"data\":{\"code\":\"test-app\",\"unitId\":\"$$UID\",\"hostUri\":\"amqp://rabbitmq\",\"name\":\"App Demo\"}}")
+        HC=$$(echo "$$ARESP" | tail -1); BODY=$$(echo "$$ARESP" | head -1)
+        if [ "$$HC" = "200" ] || [ "$$HC" = "201" ]; then
+          AID=$$(echo "$$BODY" | sed 's/.*"applicationId":"//;s/".*//')
+          curl -s -X PATCH "$$BASE/coremgr/api/v1/application/$$AID" \
+            -H "Content-Type: application/json" -H "$$AH" \
+            -d '{"data":{"password":"password"}}' > /dev/null
+          echo "Application created: test-app"
+        else echo "Application exists: test-app"; fi
+        echo "Platform init done"
+
+  # TODO: uncomment when Docker images are available
+  #lora-ifroglab:
+  #  image: woofdogtw/lora-ifroglab:${LORA_IFROGLAB_VERSION}
+  #  container_name: lora-ifroglab
+  #  restart: unless-stopped
+  #  depends_on:
+  #    - rabbitmq
+  #    - sylvia-iot-core
+  #  ports:
+  #    - "6080:6080"
+
+  #app-demo:
+  #  image: woofdogtw/app-demo:${APP_DEMO_VERSION}
+  #  container_name: app-demo
+  #  restart: unless-stopped
+  #  depends_on:
+  #    - rabbitmq
+  #    - sylvia-iot-core
+  #  ports:
+  #    - "7080:7080"
+
+volumes:
+  mongodb-data:
+  redis-data:
+  rabbitmq-data:
+  emqx-data:
+  plugins-data:
+  certs-data:

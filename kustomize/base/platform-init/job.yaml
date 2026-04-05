@@ -1,0 +1,105 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: platform-init
+spec:
+  backoffLimit: 3
+  template:
+    metadata:
+      labels:
+        app: platform-init
+    spec:
+      restartPolicy: OnFailure
+      initContainers:
+        - name: wait-api
+          image: alpine
+          command:
+            - /bin/sh
+            - -c
+            - |
+              apk add --no-cache -q curl
+              echo "Waiting for API and seed..."
+              for i in $(seq 1 90); do
+                STATUS=$(curl -s -o /dev/null -w "%{http_code}" \
+                  -X POST "http://sylvia-iot-auth:1080/auth/oauth2/login" \
+                  -d "state=test&account=admin&password=admin" 2>/dev/null)
+                [ "$STATUS" = "302" ] && { echo "API ready"; exit 0; }
+                sleep 3
+              done
+              echo "API not ready, proceeding anyway"
+          resources:
+            limits:
+              cpu: "100m"
+              memory: "64Mi"
+      containers:
+        - name: init
+          image: alpine
+          command:
+            - /bin/sh
+            - -c
+            - |
+              apk add --no-cache -q curl
+              BASE=http://sylvia-iot-coremgr:1080
+              AUTH_BASE=http://sylvia-iot-auth:1080
+              REDIR="http%3A%2F%2Flocalhost%3A1080%2Fauth%2Foauth2%2Fredirect"
+              STATE="response_type%3Dcode%26client_id%3Dpublic%26redirect_uri%3D${REDIR}"
+              SID=$(curl -s -D - -o /dev/null -X POST "$AUTH_BASE/auth/oauth2/login" \
+                -d "state=${STATE}&account=admin&password=admin" \
+                | grep -i 'session_id=' | sed 's/.*session_id=//;s/[&;].*//' | tr -d '\r')
+              CODE=$(curl -s -D - -o /dev/null -X POST "$AUTH_BASE/auth/oauth2/authorize" \
+                -d "allow=yes&session_id=${SID}&client_id=public&response_type=code&redirect_uri=${REDIR}" \
+                | grep -i 'code=' | sed 's/.*code=//;s/[& ].*//' | tr -d '\r')
+              TOKEN=$(curl -s -X POST "$AUTH_BASE/auth/oauth2/token" \
+                -d "grant_type=authorization_code&code=${CODE}&redirect_uri=${REDIR}&client_id=public")
+              AT=$(echo "$TOKEN" | sed 's/.*"access_token":"//;s/".*//')
+              if [ -z "$AT" ] || [ "$AT" = "$TOKEN" ]; then
+                echo "Warning: auth failed"; exit 0
+              fi
+              echo "Authenticated"
+              AH="Authorization: Bearer $AT"
+              # Create unit
+              URESP=$(curl -s -w "\n%{http_code}" -X POST "$BASE/coremgr/api/v1/unit" \
+                -H "Content-Type: application/json" -H "$AH" \
+                -d '{"data":{"code":"demo","name":"Demo Unit"}}')
+              HC=$(echo "$URESP" | tail -1); BODY=$(echo "$URESP" | head -1)
+              if [ "$HC" = "200" ] || [ "$HC" = "201" ]; then
+                UID=$(echo "$BODY" | sed 's/.*"unitId":"//;s/".*//')
+                echo "Unit created: demo"
+              else
+                UID=$(curl -s "$BASE/coremgr/api/v1/unit/list?code=demo" -H "$AH" \
+                  | sed 's/.*"unitId":"//;s/".*//')
+                echo "Unit exists: demo"
+              fi
+              [ -z "$UID" ] && { echo "No unit ID"; exit 0; }
+              # Create network
+              NRESP=$(curl -s -w "\n%{http_code}" -X POST "$BASE/coremgr/api/v1/network" \
+                -H "Content-Type: application/json" -H "$AH" \
+                -d "{\"data\":{\"code\":\"lora-ifroglab\",\"unitId\":\"$UID\",\"hostUri\":\"amqp://rabbitmq\",\"name\":\"LoRa iFrogLab\"}}")
+              HC=$(echo "$NRESP" | tail -1); BODY=$(echo "$NRESP" | head -1)
+              if [ "$HC" = "200" ] || [ "$HC" = "201" ]; then
+                NID=$(echo "$BODY" | sed 's/.*"networkId":"//;s/".*//')
+                curl -s -X PATCH "$BASE/coremgr/api/v1/network/$NID" \
+                  -H "Content-Type: application/json" -H "$AH" \
+                  -d '{"data":{"password":"password"}}' > /dev/null
+                echo "Network created: lora-ifroglab"
+              else echo "Network exists: lora-ifroglab"; fi
+              # Create application
+              ARESP=$(curl -s -w "\n%{http_code}" -X POST "$BASE/coremgr/api/v1/application" \
+                -H "Content-Type: application/json" -H "$AH" \
+                -d "{\"data\":{\"code\":\"test-app\",\"unitId\":\"$UID\",\"hostUri\":\"amqp://rabbitmq\",\"name\":\"App Demo\"}}")
+              HC=$(echo "$ARESP" | tail -1); BODY=$(echo "$ARESP" | head -1)
+              if [ "$HC" = "200" ] || [ "$HC" = "201" ]; then
+                AID=$(echo "$BODY" | sed 's/.*"applicationId":"//;s/".*//')
+                curl -s -X PATCH "$BASE/coremgr/api/v1/application/$AID" \
+                  -H "Content-Type: application/json" -H "$AH" \
+                  -d '{"data":{"password":"password"}}' > /dev/null
+                echo "Application created: test-app"
+              else echo "Application exists: test-app"; fi
+              echo "Platform init done"
+          resources:
+            limits:
+              cpu: "200m"
+              memory: "128Mi"
+            requests:
+              cpu: "100m"
+              memory: "64Mi"

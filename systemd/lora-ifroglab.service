@@ -1,0 +1,13 @@
+[Unit]
+Description=Sylvia-IoT LoRa iFrogLab Service
+Requires=sylvia-iot-infra.service
+After=sylvia-iot-core.service sylvia-router.service
+
+[Install]
+WantedBy=multi-user.target
+
+[Service]
+ExecStart=/usr/local/bin/lora-ifroglab -f /etc/sylvia-iot/config-lora-ifroglab.json5
+WorkingDirectory=/var/lib/sylvia-iot
+Restart=always
+RestartSec=5

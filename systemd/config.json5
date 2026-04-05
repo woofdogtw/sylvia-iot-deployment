@@ -1,0 +1,77 @@
+{
+    "log": {},
+    "server": {
+        "httpPort": 1080,
+        "httpsPort": 1443,
+        "cacertFile": "/etc/sylvia-iot/certificates/ca-certificates.crt",
+        "certFile": "/etc/sylvia-iot/certificates/sylvia-iot.crt",
+        "keyFile": "/etc/sylvia-iot/certificates/sylvia-iot.key",
+        "staticPath": "/usr/local/share/sylvia-iot/static"
+    },
+    "auth": {
+        "db": {
+            "engine": "mongodb",
+            "mongodb": {
+                "url": "mongodb://localhost:27017",
+                "database": "sylvia-iot-auth"
+            }
+        }
+    },
+    "broker": {
+        "auth": "http://localhost:1080/auth",
+        "db": {
+            "engine": "mongodb",
+            "mongodb": {
+                "url": "mongodb://localhost:27017",
+                "database": "sylvia-iot-broker"
+            }
+        },
+        "cache": {
+            "engine": "memory"
+        }
+    },
+    "coremgr": {
+        "auth": "http://localhost:1080/auth",
+        "broker": "http://localhost:1080/broker",
+        "mq": {
+            "engine": {
+                "amqp": "rabbitmq",
+                "mqtt": "emqx"
+            },
+            "rabbitmq": {
+                "username": "guest",
+                "password": "guest"
+            },
+            "emqx": {
+                "apiKey": "",
+                "apiSecret": ""
+            }
+        }
+    },
+    "coremgrCli": {
+        "auth": "http://localhost:1080/auth",
+        "coremgr": "http://localhost:1080/coremgr",
+        "data": "http://localhost:1080/data",
+        "clientId": "public",
+        "redirectUri": "http://localhost:1080/auth/oauth2/redirect"
+    },
+    "data": {
+        "auth": "http://localhost:1080/auth",
+        "broker": "http://localhost:1080/broker",
+        "db": {
+            "engine": "mongodb",
+            "mongodb": {
+                "url": "mongodb://localhost:27017",
+                "database": "sylvia-iot-data"
+            }
+        }
+    },
+    "router": {
+        "auth": "http://localhost:1080/auth",
+        "router": "http://localhost:1080/router",
+        "wan": [
+            { "name": "wan0", "ifname": "eth0" }
+        ],
+        "lan": { "name": "lan0", "ifname": "eth1" }
+    }
+}

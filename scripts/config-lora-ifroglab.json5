@@ -1,0 +1,11 @@
+{
+    "log": {},
+    "server": {
+        "httpPort": 6080
+    },
+    "loraIfroglab": {
+        "unit": "demo",
+        "code": "lora-ifroglab",
+        "mqUri": "amqp://network.demo.lora-ifroglab:password@localhost/network.demo.lora-ifroglab"
+    }
+}

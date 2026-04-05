@@ -1,0 +1,11 @@
+[Unit]
+Description=Sylvia-IoT Device Demo Service
+
+[Install]
+WantedBy=multi-user.target
+
+[Service]
+ExecStart=/usr/local/bin/dev-demo
+WorkingDirectory=/var/lib/sylvia-iot
+Restart=always
+RestartSec=5

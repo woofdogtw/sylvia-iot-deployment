@@ -1,0 +1,13 @@
+[Unit]
+Description=Sylvia-IoT Router Service
+Requires=sylvia-iot-infra.service
+After=sylvia-iot-infra.service
+
+[Install]
+WantedBy=multi-user.target
+
+[Service]
+ExecStart=/usr/local/bin/sylvia-router -f /etc/sylvia-iot/config.json5
+WorkingDirectory=/var/lib/sylvia-iot
+Restart=always
+RestartSec=5

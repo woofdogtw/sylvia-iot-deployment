@@ -1,0 +1,15 @@
+[Unit]
+Description=Sylvia-IoT Infrastructure Services (MongoDB, Redis, RabbitMQ, EMQX)
+Requires=docker.service
+After=docker.service
+
+[Install]
+WantedBy=multi-user.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStartPre=docker compose -f /etc/sylvia-iot/docker-compose.yaml down
+ExecStart=docker compose -f /etc/sylvia-iot/docker-compose.yaml up -d
+ExecStop=docker compose -f /etc/sylvia-iot/docker-compose.yaml down
+TimeoutStartSec=0

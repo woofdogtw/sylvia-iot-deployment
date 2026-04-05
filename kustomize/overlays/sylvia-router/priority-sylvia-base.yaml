@@ -1,3 +1,0 @@
-- op: replace
-  path: /spec/template/spec/priorityClassName
-  value: system-cluster-critical

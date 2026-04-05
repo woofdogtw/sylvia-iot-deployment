@@ -1,0 +1,45 @@
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: sylvia-iot
+  annotations:
+    traefik.ingress.kubernetes.io/router.entrypoints: web
+spec:
+  rules:
+    - http:
+        paths:
+          - path: /auth
+            pathType: Prefix
+            backend:
+              service:
+                name: sylvia-iot-auth
+                port:
+                  number: 1080
+          - path: /broker
+            pathType: Prefix
+            backend:
+              service:
+                name: sylvia-iot-broker
+                port:
+                  number: 1080
+          - path: /coremgr
+            pathType: Prefix
+            backend:
+              service:
+                name: sylvia-iot-coremgr
+                port:
+                  number: 1080
+          - path: /data
+            pathType: Prefix
+            backend:
+              service:
+                name: sylvia-iot-data
+                port:
+                  number: 1080
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: sylvia-iot-gui
+                port:
+                  number: 80

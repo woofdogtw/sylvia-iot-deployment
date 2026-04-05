@@ -1,0 +1,7 @@
+configMapGenerator:
+  - name: mongodb-seed-scripts
+    files:
+      - init-mongodb.js
+
+resources:
+  - job.yaml

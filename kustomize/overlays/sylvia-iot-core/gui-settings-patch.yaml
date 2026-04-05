@@ -1,0 +1,17 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: sylvia-iot-gui
+spec:
+  template:
+    spec:
+      initContainers:
+        - name: plugin-downloader
+          envFrom:
+            - configMapRef:
+                name: sylvia-iot-gui-settings
+      containers:
+        - name: sylvia-iot-gui
+          envFrom:
+            - configMapRef:
+                name: sylvia-iot-gui-settings

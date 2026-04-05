@@ -1,0 +1,50 @@
+services:
+  mongodb:
+    container_name: sylvia-mongodb
+    image: mongo:8.2.6
+    restart: unless-stopped
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodb-data:/data/db
+
+  redis:
+    container_name: sylvia-redis
+    image: redis:8.6.1-alpine
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+
+  rabbitmq:
+    container_name: sylvia-rabbitmq
+    image: rabbitmq:4.2.5-management-alpine
+    restart: unless-stopped
+    ports:
+      - "5671:5671"
+      - "5672:5672"
+      - "15672:15672"
+    volumes:
+      - rabbitmq-data:/var/lib/rabbitmq
+      - /etc/sylvia-iot/certificates:/conf/certs:ro
+      - /etc/sylvia-iot/rabbitmq.conf:/etc/rabbitmq/rabbitmq.conf:ro
+
+  emqx:
+    container_name: sylvia-emqx
+    image: emqx/emqx:6.2.0
+    restart: unless-stopped
+    ports:
+      - "1883:1883"
+      - "8883:8883"
+      - "18083:18083"
+    volumes:
+      - emqx-data:/opt/emqx/data
+      - /etc/sylvia-iot/certificates:/conf/certs:ro
+      - /etc/sylvia-iot/emqx.conf:/opt/emqx/etc/emqx.conf:ro
+
+volumes:
+  mongodb-data:
+  redis-data:
+  rabbitmq-data:
+  emqx-data:
